@@ -3,23 +3,20 @@ from fastapi import HTTPException
 from . import models, schemas
 
 def sanitize_email(email_str: str):
-    """Helper to convert empty/whitespace strings to None."""
     if email_str and email_str.strip():
         return email_str.strip()
     return None
 
-# ✅ CREATE
+# CREATE
 def create_contact(db: Session, contact: schemas.ContactCreate):
     email_val = sanitize_email(contact.email)
 
-    # Check duplicate phone
     existing_phone = db.query(models.Contact).filter(
         models.Contact.phone_number == contact.phone_number
     ).first()
     if existing_phone:
         raise HTTPException(status_code=400, detail="Phone already exists")
 
-    # Check duplicate email ONLY if a value exists
     if email_val:
         existing_email = db.query(models.Contact).filter(
             models.Contact.email == email_val
@@ -39,15 +36,15 @@ def create_contact(db: Session, contact: schemas.ContactCreate):
     db.refresh(db_contact)
     return db_contact
 
-# ✅ GET ALL
+# GET ALL
 def get_contacts(db: Session):
     return db.query(models.Contact).all()
 
-# ✅ GET ONE
+# GET ONE
 def get_contact(db: Session, contact_id: int):
     return db.query(models.Contact).filter(models.Contact.id == contact_id).first()
 
-# ✅ UPDATE
+# UPDATE
 def update_contact(db: Session, contact_id: int, data: schemas.ContactCreate):
     contact = get_contact(db, contact_id)
     if not contact:
@@ -55,7 +52,6 @@ def update_contact(db: Session, contact_id: int, data: schemas.ContactCreate):
 
     email_val = sanitize_email(data.email)
 
-    # Check duplicate phone (exclude current record)
     existing_phone = db.query(models.Contact).filter(
         models.Contact.phone_number == data.phone_number,
         models.Contact.id != contact_id
@@ -63,7 +59,6 @@ def update_contact(db: Session, contact_id: int, data: schemas.ContactCreate):
     if existing_phone:
         raise HTTPException(status_code=400, detail="Phone already exists")
 
-    # Check duplicate email (exclude current record)
     if email_val:
         existing_email = db.query(models.Contact).filter(
             models.Contact.email == email_val,
@@ -81,11 +76,12 @@ def update_contact(db: Session, contact_id: int, data: schemas.ContactCreate):
     db.refresh(contact)
     return contact
 
-# ✅ DELETE
+# DELETE
 def delete_contact(db: Session, contact_id: int):
     contact = get_contact(db, contact_id)
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
+
     db.delete(contact)
     db.commit()
     return {"message": "Contact deleted successfully"}

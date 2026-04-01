@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
 from .. import crud, schemas
+
+# ✅ Import limiter from separate file (NO circular import)
+from ..limiter import limiter
 
 router = APIRouter(prefix="/contacts", tags=["Contacts"])
 
@@ -15,7 +18,8 @@ def get_db():
 
 # CREATE
 @router.post("/", response_model=schemas.ContactResponse)
-def create(contact: schemas.ContactCreate, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def create(request: Request, contact: schemas.ContactCreate, db: Session = Depends(get_db)):
     try:
         return crud.create_contact(db, contact)
     except Exception as e:
@@ -24,13 +28,15 @@ def create(contact: schemas.ContactCreate, db: Session = Depends(get_db)):
 
 # GET ALL
 @router.get("/", response_model=list[schemas.ContactResponse])
-def get_all(db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def get_all(request: Request, db: Session = Depends(get_db)):
     return crud.get_contacts(db)
 
 
 # GET BY ID
 @router.get("/{id}", response_model=schemas.ContactResponse)
-def get_one(id: int, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def get_one(request: Request, id: int, db: Session = Depends(get_db)):
     contact = crud.get_contact(db, id)
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
@@ -39,7 +45,8 @@ def get_one(id: int, db: Session = Depends(get_db)):
 
 # UPDATE
 @router.put("/{id}", response_model=schemas.ContactResponse)
-def update(id: int, data: schemas.ContactCreate, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def update(request: Request, id: int, data: schemas.ContactCreate, db: Session = Depends(get_db)):
     updated = crud.update_contact(db, id, data)
     if not updated:
         raise HTTPException(status_code=404, detail="Contact not found")
@@ -48,7 +55,8 @@ def update(id: int, data: schemas.ContactCreate, db: Session = Depends(get_db)):
 
 # DELETE
 @router.delete("/{id}")
-def delete(id: int, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def delete(request: Request, id: int, db: Session = Depends(get_db)):
     deleted = crud.delete_contact(db, id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Contact not found")
